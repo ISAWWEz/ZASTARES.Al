@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oyun Lobisi ve Admin Paneli</title>
+    <title>Oyun Lobisi v3</title>
     <style>
-        /* --- ÖNCEKİ TASARIMIN AYNISI --- */
         body {
             margin: 0; padding: 0; font-family: sans-serif;
             background: url('lobarka.webp') no-repeat center center fixed;
@@ -14,188 +13,269 @@
         }
         .header { width: 90%; display: flex; justify-content: space-between; padding-top: 20px; margin-bottom: 50px; }
         .language { color: #5d9e35; font-weight: bold; font-size: 18px; text-align: center; }
-        .flags { font-size: 24px; margin-top: 5px; display: flex; gap: 5px; }
-        .login-btn { background: white; border: 2px solid #5c3a21; color: #5d9e35; padding: 5px 15px; font-size: 18px; font-weight: bold; cursor: pointer; height: fit-content; }
+        .flags { font-size: 24px; margin-top: 5px; display: flex; gap: 10px; cursor: pointer; }
+        .flags span:hover { transform: scale(1.2); transition: 0.2s; }
+
+        .auth-container { display: flex; align-items: center; gap: 10px; }
+        .login-btn, .user-info-btn { 
+            background: white; border: 2px solid #5c3a21; color: #5d9e35; 
+            padding: 8px 15px; font-size: 16px; font-weight: bold; cursor: pointer; 
+        }
+        .logout-link { color: #e74c3c; font-size: 12px; cursor: pointer; display: block; text-align: center; margin-top: 4px; }
+
         .menu-container { display: flex; gap: 50px; margin-bottom: 50px; flex-wrap: wrap; justify-content: center; }
         .column { display: flex; flex-direction: column; gap: 15px; }
         .game-btn { border: 3px solid black; padding: 15px 20px; font-weight: bold; font-size: 14px; cursor: pointer; width: 220px; text-align: center; text-transform: uppercase; }
         .car-btn { background-color: #3498db; color: #d4af37; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .car-icon { color: red; font-size: 20px; }
         .red-btn { background-color: #e74c3c; color: #f1c40f; }
         .mc-btn { background: linear-gradient(to bottom, #5d9e35 45%, #8b5a2b 45%); color: #f1c40f; text-shadow: 1px 1px 2px black; }
-        .war-btn { background-color: #f1c40f; color: black; font-style: italic; }
+        .war-btn { background-color: #f1c40f; color: black; }
         .sim-btn { background-color: #2c3e50; color: #e74c3c; }
-        .credits-box { background-color: white; border: 3px solid black; width: 300px; padding: 30px 20px; text-align: center; color: #c0392b; }
-        .credits-box h2 { margin: 0 0 20px 0; font-size: 32px; text-transform: uppercase; letter-spacing: 2px; }
-        .credits-box .names { font-size: 28px; line-height: 1.5; margin-bottom: 40px; }
-        .credits-box .studio { font-size: 24px; font-style: italic; }
 
-        /* MODALLAR */
-        .modal {
-            display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center;
-        }
-        .modal-content {
-            background-color: #fff; padding: 20px; border: 3px solid #5c3a21; width: 90%; max-width: 400px;
-            border-radius: 10px; position: relative;
-        }
-        .close { position: absolute; right: 15px; top: 10px; font-size: 28px; font-weight: bold; cursor: pointer; color: red; }
+        .credits-box { background-color: white; border: 3px solid black; width: 300px; padding: 20px; text-align: center; color: #c0392b; }
+
+        .modal { display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fff; padding: 20px; border: 3px solid #5c3a21; width: 90%; max-width: 380px; border-radius: 10px; position: relative; }
+        .close { position: absolute; right: 15px; top: 10px; font-size: 28px; cursor: pointer; color: red; }
         .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ccc; }
-        .tab-btn { flex: 1; padding: 10px; border: none; background: none; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: none; font-weight: bold; cursor: pointer; }
         .tab-btn.active { color: #5d9e35; border-bottom: 3px solid #5d9e35; }
-        .form-section { display: none; flex-direction: column; gap: 15px; }
+        .form-section { display: none; flex-direction: column; gap: 12px; }
         .form-section.active { display: flex; }
-        .form-section input { padding: 10px; font-size: 16px; border: 2px solid #ccc; border-radius: 5px; }
-        .form-section button { background-color: #5d9e35; color: white; padding: 10px; font-size: 18px; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
-        .warning-text { font-size: 12px; color: #e74c3c; font-weight: bold; margin-top: -10px; }
-        
-        /* ADMİN PANELİ ÖZELLİKLERİ */
-        .admin-trigger {
-            position: fixed; bottom: 20px; right: 20px; background-color: #2ecc71; width: 40px; height: 40px;
-            border-radius: 50%; border: 2px solid white; cursor: pointer; z-index: 5;
-        }
-        .admin-list { max-height: 300px; overflow-y: auto; margin-top: 15px; }
-        .user-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; }
-        .action-btns { display: flex; gap: 5px; } /* Butonları yan yana tutmak için */
-        
-        .ban-btn { background-color: #f39c12; color: white; border: none; padding: 5px 8px; cursor: pointer; font-weight: bold; border-radius: 3px; }
-        .delete-btn { background-color: #e74c3c; color: white; border: none; padding: 5px 8px; cursor: pointer; font-weight: bold; border-radius: 3px; }
-        .banned-text { color: red; font-weight: bold; font-size: 12px; }
+        input { padding: 12px; font-size: 16px; border: 2px solid #ccc; border-radius: 5px; outline: none; }
+        button.submit-btn { background-color: #5d9e35; color: white; padding: 12px; font-size: 18px; border: none; font-weight: bold; cursor: pointer; }
+
+        .criteria-list { font-size: 13px; margin: 0; padding: 0; list-style: none; }
+        .criteria { color: #e74c3c; font-weight: bold; transition: 0.3s; }
+        .criteria.success { color: #2ecc71; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="language">dil <div class="flags"><span>🇹🇷</span><span>🇬🇧</span></div></div>
-        <button class="login-btn" onclick="openAuthModal()">oturum aç</button>
+        <div class="language">
+            <span id="langLabel">DİL</span>
+            <div class="flags">
+                <span onclick="setLanguage('tr')">🇹🇷</span>
+                <span onclick="setLanguage('en')">🇬🇧</span>
+            </div>
+        </div>
+        <div id="authArea" class="auth-container">
+            <button id="mainLoginBtn" class="login-btn" onclick="openModal()" data-key="loginMain">OTURUM AÇ</button>
+        </div>
     </div>
 
     <div class="menu-container">
         <div class="column">
-            <button class="game-btn car-btn"><span class="car-icon">🚗</span> ARABA OYUNLAR</button>
-            <button class="game-btn red-btn">2 BOYUTLU OYINLAR OYUNLAR</button>
+            <button class="game-btn car-btn" data-key="carBtn">🚗 ARABA OYUNLAR</button>
+            <button class="game-btn red-btn" data-key="redBtn">2 BOYUTLU OYUNLAR</button>
         </div>
         <div class="column">
-            <button class="game-btn mc-btn">MİNECRAFT OYUNLARI</button>
-            <button class="game-btn war-btn">SAVAŞ OYUNLARI</button>
-            <button class="game-btn sim-btn">C HOON CH CODE SİMÜLATOR</button>
+            <button class="game-btn mc-btn" data-key="mcBtn">MİNECRAFT OYUNLARI</button>
+            <button class="game-btn war-btn" data-key="warBtn">SAVAŞ OYUNLARI</button>
+            <button class="game-btn sim-btn" data-key="simBtn">CODE SİMÜLATOR</button>
         </div>
     </div>
 
     <div class="credits-box">
-        <h2>YAPIMCILAR</h2>
-        <div class="names"><div>İSAWWEZ</div><div>MARTAKATDJ</div></div>
-        <div class="studio">CODLYING STUDİOS</div>
+        <h3 data-key="creditsTitle">YAPIMCILAR</h3>
+        <p>İSAWWEZ & MARTAKATDJ</p>
+        <p><em>CODLYING STUDİOS</em></p>
     </div>
 
     <div id="authModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('authModal')">&times;</span>
+            <span class="close" onclick="closeModal()">&times;</span>
             <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('loginSec')">GİRİŞ YAP</button>
-                <button class="tab-btn" onclick="switchTab('registerSec')">KAYDOL</button>
+                <button id="tLogin" class="tab-btn active" onclick="switchTab('loginSec')" data-key="tabLogin">GİRİŞ YAP</button>
+                <button id="tReg" class="tab-btn" onclick="switchTab('registerSec')" data-key="tabReg">KAYDOL</button>
             </div>
+
             <div id="loginSec" class="form-section active">
-                <input type="text" id="loginNick" placeholder="NİCKİNİZİ YAZIN">
-                <input type="password" id="loginPass" placeholder="ŞİFRENİZİ YAZIN">
-                <button onclick="login()">GİRİŞ YAP</button>
+                <input type="text" id="lNick" placeholder="NİCKİNİZ">
+                <input type="password" id="lPass" placeholder="ŞİFRE">
+                <button class="submit-btn" onclick="handleLogin()" data-key="loginSubmit">GİRİŞ YAP</button>
             </div>
+
             <div id="registerSec" class="form-section">
-                <input type="text" id="regNick" placeholder="NİCK BELİRLE">
-                <input type="password" id="regPass" placeholder="ŞİFRE BELİRLE">
-                <p class="warning-text">Şifre: Rakam ve @#₺_ içermeli, 12 karakter olmalı.</p>
-                <button onclick="register()">KAYDOL</button>
+                <input type="text" id="rNick" placeholder="NİCK BELİRLE">
+                <input type="password" id="rPass" placeholder="ŞİFRE BELİRLE" oninput="checkCriteria()">
+                <ul class="criteria-list">
+                    <li id="cLen" class="criteria" data-key="critLen">● 12 Karakter Olmalı</li>
+                    <li id="cNum" class="criteria" data-key="critNum">● Rakam İçermeli</li>
+                    <li id="cSym" class="criteria" data-key="critSym">● @#₺_ İçermeli</li>
+                </ul>
+                <button class="submit-btn" onclick="handleRegister()" data-key="regSubmit">KAYDOL</button>
             </div>
-        </div>
-    </div>
-
-    <button class="admin-trigger" onclick="checkAdminPassword()"></button>
-
-    <div id="adminModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('adminModal')">&times;</span>
-            <h2 style="color:red; text-align:center; margin-top:0;">ADMİN PANELİ</h2>
-            <div id="adminUserList" class="admin-list"></div>
         </div>
     </div>
 
     <script>
-        let db = JSON.parse(localStorage.getItem('oyuncuVeritabani')) || {};
+        // Dil Sözlüğü
+        const translations = {
+            tr: {
+                langLabel: "DİL",
+                loginMain: "OTURUM AÇ",
+                carBtn: "🚗 ARABA OYUNLAR",
+                redBtn: "2 BOYUTLU OYUNLAR",
+                mcBtn: "MİNECRAFT OYUNLARI",
+                warBtn: "SAVAŞ OYUNLARI",
+                simBtn: "CODE SİMÜLATOR",
+                creditsTitle: "YAPIMCILAR",
+                tabLogin: "GİRİŞ YAP",
+                tabReg: "KAYDOL",
+                loginSubmit: "GİRİŞ YAP",
+                regSubmit: "KAYDOL",
+                critLen: "● 12 Karakter Olmalı",
+                critNum: "● Rakam İçermeli",
+                critSym: "● @#₺_ İçermeli",
+                logout: "Oturumu Kapat",
+                nickPH: "NİCKİNİZ",
+                passPH: "ŞİFRE",
+                regNickPH: "NİCK BELİRLE",
+                regPassPH: "ŞİFRE BELİRLE",
+                alert1: "Nick geçersiz veya dolu!",
+                alert2: "Kriterler yeşil olmalı!",
+                alert3: "Kaydolma başarılı!",
+                alert4: "Hatalı nick veya şifre!"
+            },
+            en: {
+                langLabel: "LANGUAGE",
+                loginMain: "LOGIN",
+                carBtn: "🚗 CAR GAMES",
+                redBtn: "2D GAMES",
+                mcBtn: "MINECRAFT GAMES",
+                warBtn: "WAR GAMES",
+                simBtn: "CODE SIMULATOR",
+                creditsTitle: "DEVELOPERS",
+                tabLogin: "LOGIN",
+                tabReg: "REGISTER",
+                loginSubmit: "LOGIN",
+                regSubmit: "REGISTER",
+                critLen: "● Must be 12 Characters",
+                critNum: "● Must Contain Numbers",
+                critSym: "● Must Contain @#₺_",
+                logout: "Logout",
+                nickPH: "YOUR NICKNAME",
+                passPH: "PASSWORD",
+                regNickPH: "SET NICKNAME",
+                regPassPH: "SET PASSWORD",
+                alert1: "Nickname invalid or taken!",
+                alert2: "Criteria must be green!",
+                alert3: "Registration successful!",
+                alert4: "Wrong nickname or password!"
+            }
+        };
 
-        function openAuthModal() { document.getElementById('authModal').style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-        
-        function switchTab(tabId) {
-            document.querySelectorAll('.form-section').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
+        let currentLang = localStorage.getItem('lang') || 'tr';
+        let db = JSON.parse(localStorage.getItem('oyuncuVeritabani')) || {};
+        let currentUser = localStorage.getItem('currentUser') || null;
+
+        window.onload = () => {
+            updateUI();
+            setLanguage(currentLang);
+        };
+
+        // Dili Değiştirme Fonksiyonu
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('lang', lang);
+            
+            document.getElementById('langLabel').innerText = translations[lang].langLabel;
+            
+            // Tüm data-key olan elementleri güncelle
+            document.querySelectorAll('[data-key]').forEach(el => {
+                const key = el.getAttribute('data-key');
+                el.innerText = translations[lang][key];
+            });
+
+            // Placeholderları güncelle
+            document.getElementById('lNick').placeholder = translations[lang].nickPH;
+            document.getElementById('lPass').placeholder = translations[lang].passPH;
+            document.getElementById('rNick').placeholder = translations[lang].regNickPH;
+            document.getElementById('rPass').placeholder = translations[lang].regPassPH;
+            
+            updateUI(); // Giriş yapılmışsa orayı da güncelle
+        }
+
+        function openModal() { document.getElementById('authModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('authModal').style.display = 'none'; }
+
+        function switchTab(id) {
+            document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
             event.target.classList.add('active');
         }
 
-        function register() {
-            const nick = document.getElementById('regNick').value.trim();
-            const pass = document.getElementById('regPass').value;
-            const hasNumber = /\d/.test(pass);
-            const hasSymbol = /[@#₺_]/.test(pass);
-            if (nick === "" || db[nick]) return alert("Nick geçersiz veya alınmış!");
-            if (!hasNumber || !hasSymbol || pass.length < 12) return alert("Şifre kriterlere uymuyor!");
-            db[nick] = { password: pass, banBitisSuresi: 0 };
+        function checkCriteria() {
+            const val = document.getElementById('rPass').value;
+            const isLen = val.length >= 12;
+            const isNum = /\d/.test(val);
+            const isSym = /[@#₺_]/.test(val);
+            updateColor('cLen', isLen);
+            updateColor('cNum', isNum);
+            updateColor('cSym', isSym);
+            return isLen && isNum && isSym;
+        }
+
+        function updateColor(id, success) {
+            const el = document.getElementById(id);
+            if(success) el.classList.add('success');
+            else el.classList.remove('success');
+        }
+
+        function handleRegister() {
+            const nick = document.getElementById('rNick').value.trim();
+            const pass = document.getElementById('rPass').value;
+            const lang = translations[currentLang];
+
+            if(!nick || db[nick]) return alert(lang.alert1);
+            if(!checkCriteria()) return alert(lang.alert2);
+
+            db[nick] = { password: pass };
             localStorage.setItem('oyuncuVeritabani', JSON.stringify(db));
-            alert("Kayıt Başarılı!");
+            alert(lang.alert3);
             switchTab('loginSec');
         }
 
-        function login() {
-            const nick = document.getElementById('loginNick').value.trim();
-            const pass = document.getElementById('loginPass').value;
-            if (!db[nick] || db[nick].password !== pass) return alert("Hatalı bilgiler!");
-            if (db[nick].banBitisSuresi > new Date().getTime()) return alert("BANLANDINIZ!");
-            alert("Hoş geldin " + nick);
-            closeModal('authModal');
+        function handleLogin() {
+            const nick = document.getElementById('lNick').value.trim();
+            const pass = document.getElementById('lPass').value;
+            const lang = translations[currentLang];
+
+            if(db[nick] && db[nick].password === pass) {
+                currentUser = nick;
+                localStorage.setItem('currentUser', nick);
+                updateUI();
+                closeModal();
+            } else {
+                alert(lang.alert4);
+            }
         }
 
-        function checkAdminPassword() {
-            if (prompt("Kod:") === "☍⟁ᚦDOS✓ENT꧁") openAdminPanel();
-        }
-
-        function openAdminPanel() {
-            const listDiv = document.getElementById('adminUserList');
-            listDiv.innerHTML = "";
-            const suAn = new Date().getTime();
-            for (const nick in db) {
-                const userBox = document.createElement('div');
-                userBox.className = 'user-item';
-                let banTxt = db[nick].banBitisSuresi > suAn ? "<span class='banned-text'>(B)</span>" : "";
-                userBox.innerHTML = `
-                    <span><strong>${nick}</strong> ${banTxt}</span>
-                    <div class="action-btns">
-                        <button class="ban-btn" onclick="banUser('${nick}')">Ban</button>
-                        <button class="delete-btn" onclick="deleteUser('${nick}')">Sil</button>
+        function updateUI() {
+            const authArea = document.getElementById('authArea');
+            const lang = translations[currentLang];
+            if(currentUser) {
+                authArea.innerHTML = `
+                    <div style="text-align:center">
+                        <div class="user-info-btn">${currentUser.toUpperCase()}</div>
+                        <span class="logout-link" onclick="logout()">${lang.logout}</span>
                     </div>
                 `;
-                listDiv.appendChild(userBox);
-            }
-            document.getElementById('adminModal').style.display = 'flex';
-        }
-
-        function banUser(nick) {
-            const gun = prompt("Kaç gün ban?");
-            if (gun > 0) {
-                db[nick].banBitisSuresi = new Date().getTime() + (gun * 86400000);
-                localStorage.setItem('oyuncuVeritabani', JSON.stringify(db));
-                openAdminPanel();
+            } else {
+                authArea.innerHTML = `<button class="login-btn" onclick="openModal()">${lang.loginMain}</button>`;
             }
         }
 
-        // HESAP SİLME FONKSİYONU
-        function deleteUser(nick) {
-            if (confirm(nick + " adlı oyuncunun hesabını tamamen silmek istediğine emin misin?")) {
-                delete db[nick]; // Objeden kullanıcıyı kaldır
-                localStorage.setItem('oyuncuVeritabani', JSON.stringify(db)); // Kaydet
-                alert("Hesap silindi.");
-                openAdminPanel(); // Listeyi yenile
-            }
+        function logout() {
+            localStorage.removeItem('currentUser');
+            currentUser = null;
+            updateUI();
+            location.reload();
         }
     </script>
 </body>
-</html>
+    </html>
+    
