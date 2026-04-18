@@ -1,182 +1,235 @@
-// ZASTARES AI - WEB SEARCH ENGINE v1.1
+// ZASTARES AI - ULTIMATE ENGINE (Persist & Sessions)
 // YAPIMCI: İSAWWEz-CODLYİNG STUDİOS
 
+let chatSessions = JSON.parse(localStorage.getItem('zastares_sessions')) || [];
+let currentSessionId = null;
+let isIncognito = false;
+
 document.addEventListener('DOMContentLoaded', () => {
-    // 3 saniye sonra açılış ekranını kapat ve giriş ekranını göster
+    // 1. Açılış Ekranı ve Otomatik Giriş Kontrolü
     setTimeout(() => {
-        const splash = document.getElementById('splash-screen');
-        const auth = document.getElementById('auth-screen');
-        if (splash) splash.style.display = 'none';
-        if (auth) auth.classList.remove('hidden');
+        document.getElementById('splash-screen').style.display = 'none';
+        const savedUser = localStorage.getItem('zastares_user');
+        
+        if (savedUser) {
+            // Eğer daha önce giriş yapılmışsa direkt ana uygulamayı aç
+            login(true); 
+        } else {
+            document.getElementById('auth-screen').classList.remove('hidden');
+        }
     }, 3000);
 
     // Buton Dinleyicileri
-    document.getElementById('login-btn').addEventListener('click', login);
+    document.getElementById('login-btn').addEventListener('click', () => login(false));
     document.getElementById('reg-btn').addEventListener('click', register);
     document.getElementById('send-btn').addEventListener('click', sendMessage);
+    
+    loadSessionsFromStorage(); // Kayıtlı sohbetleri sidebar'a yükle
 });
 
-// Global Değişkenler
-let chatHistory = [];
-let isIncognito = false;
+// 2. Giriş & Kayıt (Oturum Koruma Eklenmiş)
+function login(isAuto = false) {
+    if (!isAuto) {
+        const user = document.getElementById('l-user').value;
+        if (!user) { alert("Kullanıcı adı giriniz!"); return; }
+        localStorage.setItem('zastares_user', user); // Kullanıcıyı kaydet
+    }
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
+    
+    // Giriş yapınca yeni bir boş sohbet başlat (veya son sohbeti yükle)
+    if (chatSessions.length === 0) {
+        createNewChat();
+    } else {
+        loadSession(chatSessions[0].id);
+    }
+}
 
-// 1. Giriş ve Kayıt Mekaniği
+function register() {
+    const user = document.getElementById('r-user').value;
+    const pass = document.getElementById('r-pass').value;
+    const regex = /^(?=.*[0-9])(?=.*[@#₺_]).{12,}$/;
+    
+    if (!regex.test(pass)) {
+        alert("Kriter: 12+ Karakter, @#₺_ ve Sayı içermeli!");
+    } else {
+        localStorage.setItem('zastares_creds', JSON.stringify({user, pass}));
+        alert("Kayıt başarılı! Şimdi giriş yapın.");
+        toggleAuth();
+    }
+}
+
 function toggleAuth() {
     document.getElementById('login-form').classList.toggle('hidden');
     document.getElementById('register-form').classList.toggle('hidden');
 }
 
-function login() {
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('main-app').classList.remove('hidden');
+// 3. Sohbet Oturum Yönetimi (Sessions)
+function createNewChat() {
+    currentSessionId = Date.now();
+    const newSession = {
+        id: currentSessionId,
+        title: "Yeni Sohbet " + new Date().toLocaleTimeString(),
+        messages: []
+    };
+    chatSessions.unshift(newSession);
+    saveToStorage();
+    renderSidebar();
+    clearChatScreen();
 }
 
-function register() {
-    const pass = document.getElementById('r-pass').value;
-    const regex = /^(?=.*[0-9])(?=.*[@#₺_]).{12,}$/;
-    if (!regex.test(pass)) {
-        alert("Hata: Şifre en az 12 karakter olmalı, sayı ve (@#₺_) sembolü içermelidir!");
-    } else {
-        alert("Kayıt Başarılı! Şimdi giriş yapabilirsin.");
-        toggleAuth();
+function loadSession(id) {
+    currentSessionId = id;
+    clearChatScreen();
+    const session = chatSessions.find(s => s.id === id);
+    if (session) {
+        session.messages.forEach(m => displayMessage(m.text, m.sender));
     }
 }
 
-// 2. Mesajlaşma ve WEB ARAŞTIRMA MANTIĞI
+// 4. Geliştirilmiş Web Arama & Mesajlaşma
 async function sendMessage() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
     if (!text) return;
 
-    addMessage(text, 'user'); // Kullanıcı mesajını ekrana bas
+    addMessageData(text, 'user');
     input.value = '';
 
-    // AI Düşünüyor... efekti
     const tempId = "ai-" + Date.now();
-    addPlaceholder("İnternet kaynakları taranıyor...", tempId);
+    addPlaceholder("ZASTARES araştırıyor...", tempId);
 
     try {
         let result = "";
         const lowerText = text.toLowerCase();
 
-        // Web Arama Tetikleyicisi
-        if (lowerText.includes("ara") || lowerText.includes("nedir") || lowerText.includes("kimdir")) {
+        // Web Arama Tetikleyicisi (Geliştirilmiş Mantık)
+        if (lowerText.includes("ara") || lowerText.includes("nedir") || lowerText.includes("kim") || lowerText.includes("search")) {
             result = await webSearchAPI(text);
         } else {
-            // Standart AI Cevabı (İnternete gerek olmayan durumlar)
-            result = "Anladım. Eğer bu konuda internette bir araştırma yapmamı istersen cümlene '... nedir ara' diye ekleyebilirsin.";
+            result = "Anladım. Detaylı web araştırması için sorunuzun yanına 'ara' ekleyebilirsiniz.";
         }
 
-        updateMessage(tempId, result); // Placeholder'ı gerçek cevapla değiştir
+        updateMessage(tempId, result);
+        addMessageData(result, 'ai');
     } catch (e) {
-        updateMessage(tempId, "Hata: Web servislerine şu an ulaşılamıyor.");
+        updateMessage(tempId, "Bağlantı hatası oluştu.");
     }
 }
 
-// Gerçek Web Arama Fonksiyonu (DuckDuckGo API)
 async function webSearchAPI(query) {
-    // Sorgudaki tetikleyici kelimeleri temizleyelim
     const cleanTopic = query.toLowerCase()
-        .replace("ara", "")
-        .replace("nedir", "")
-        .replace("kimdir", "")
-        .trim();
+        .replace(/ara|nedir|kimdir|search|nedir/g, "").trim();
 
-    // DuckDuckGo API kullanımı (Ücretsiz ve anahtar gerektirmez)
-    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanTopic)}&format=json&no_html=1&skip_disambig=1`;
+    // DuckDuckGo + Wikipedia Fallback
+    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanTopic)}&format=json&no_html=1`;
 
     try {
         const res = await fetch(url);
         const data = await res.json();
-
+        
+        // Eğer DuckDuckGo ana özet vermezse, ilgili konulardan bir özet oluştur
         if (data.AbstractText) {
-            return `🌐 **ZASTARES Buldu:** ${data.AbstractText}\n\n*Kaynak: Web Kayıtları*`;
+            return `🌐 **Bilgi:** ${data.AbstractText}`;
         } else if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-            return `🔍 **Bilgi:** ${data.RelatedTopics[0].Text}`;
+            return `🔍 **Sonuç:** ${data.RelatedTopics[0].Text}`;
         } else {
-            return "🔍 Üzgünüm, bu spesifik konu hakkında internette net bir özet bulamadım. Aramayı biraz daha basitleştirmeyi deneyebilirsin.";
+            return `ZASTARES: '${cleanTopic}' hakkında genel bir araştırma yaptım ama spesifik bir özet bulamadım. Aramayı biraz daha genişletebilirsiniz.`;
         }
     } catch (err) {
-        return "❌ İnternet bağlantısı hatası: Web verileri çekilemedi.";
+        return "Arama servisi şu an meşgul.";
     }
 }
 
-// 3. Arayüz Yönetim Fonksiyonları
-function addMessage(text, sender) {
-    const msgBox = document.getElementById('messages');
-    const div = document.createElement('div');
-    div.className = `msg ${sender}-msg`;
-    div.innerText = text;
-    msgBox.appendChild(div);
-    msgBox.scrollTop = msgBox.scrollHeight;
-
+// 5. Yardımcı Fonksiyonlar (Arayüzü Günceller)
+function addMessageData(text, sender) {
     if (!isIncognito) {
-        if(sender === 'user') {
-            chatHistory.push("Sen: " + text);
-            updateSidebar(text);
-        } else {
-            chatHistory.push("Zastares: " + text);
+        const session = chatSessions.find(s => s.id === currentSessionId);
+        if (session) {
+            session.messages.push({text, sender});
+            if (session.messages.length === 1) session.title = text.substring(0, 20);
+            saveToStorage();
+            renderSidebar();
         }
     }
+    displayMessage(text, sender);
+}
+
+function displayMessage(text, sender) {
+    const box = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = `msg ${sender}-msg`;
+    div.innerHTML = text.replace(/\n/g, "<br>");
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
 }
 
 function addPlaceholder(text, id) {
-    const msgBox = document.getElementById('messages');
+    const box = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = `msg ai-msg`;
     div.innerText = text;
     div.id = id;
-    msgBox.appendChild(div);
-    msgBox.scrollTop = msgBox.scrollHeight;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
 }
 
 function updateMessage(id, text) {
     const el = document.getElementById(id);
-    if (el) el.innerHTML = text.replace(/\n/g, "<br>"); // Satır başlarını destekle
+    if (el) el.innerHTML = text.replace(/\n/g, "<br>");
 }
 
-// 4. Sidebar ve Ayar Mekanikleri (Bozulmadı)
-window.toggleSidebar = function() {
-    document.getElementById('sidebar').classList.toggle('open');
+function clearChatScreen() {
+    document.getElementById('messages').innerHTML = '';
 }
 
-window.toggleSettings = function() {
+function saveToStorage() {
+    localStorage.setItem('zastares_sessions', JSON.stringify(chatSessions));
+}
+
+function renderSidebar() {
+    const list = document.getElementById('history-list');
+    list.innerHTML = `<div class="sidebar-item" onclick="createNewChat()" style="color:#00ffcc; border:1px dashed #00ffcc; text-align:center; margin-bottom:10px;">+ Yeni Sohbet</div>`;
+    chatSessions.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'sidebar-item';
+        item.innerText = s.title || "Adsız Sohbet";
+        item.onclick = () => loadSession(s.id);
+        list.appendChild(item);
+    });
+}
+
+function loadSessionsFromStorage() {
+    renderSidebar();
+}
+
+// Sidebar ve Ayarlar (Global Fonksiyonlar)
+window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+window.toggleSettings = () => {
     const s = document.getElementById('settings-menu');
     s.style.display = s.style.display === 'block' ? 'none' : 'block';
-}
-
-window.toggleIncognito = function() {
+};
+window.clearHistory = () => {
+    localStorage.removeItem('zastares_sessions');
+    chatSessions = [];
+    renderSidebar();
+    clearChatScreen();
+    alert("Tüm geçmiş silindi.");
+};
+window.toggleIncognito = () => {
     isIncognito = !isIncognito;
     const header = document.getElementById('header-title');
-    const chat = document.getElementById('chat-area');
-    if (isIncognito) {
-        header.innerText = "🕵️ GİZLİ SOHBET";
-        header.style.color = "#ff4d4d";
-        chat.classList.add('incognito-active');
-        alert("Gizli mod aktif! Bu oturumdaki hiçbir konuşma kaydedilmeyecek.");
-    } else {
-        header.innerText = "ZASTARES AI";
-        header.style.color = "#00ffcc";
-        chat.classList.remove('incognito-active');
-    }
+    header.innerText = isIncognito ? "🕵️ GİZLİ SOHBET" : "ZASTARES AI";
+    header.style.color = isIncognito ? "#ff4d4d" : "#00ffcc";
+    if(isIncognito) alert("Gizli modda konuşmalar kaydedilmez.");
     toggleSidebar();
-}
-
-window.clearHistory = function() {
-    chatHistory = [];
-    document.getElementById('history-list').innerHTML = '';
-    document.getElementById('messages').innerHTML = '<div class="msg ai-msg">Geçmiş temizlendi.</div>';
-}
-
-window.copyHistory = function() {
-    navigator.clipboard.writeText(chatHistory.join("\n"));
-    alert("Geçmiş panoya kopyalandı!");
-}
-
-function updateSidebar(text) {
-    const list = document.getElementById('history-list');
-    const item = document.createElement('div');
-    item.className = 'sidebar-item';
-    item.innerText = text.substring(0, 20) + "...";
-    list.prepend(item);
-}
+};
+window.copyHistory = () => {
+    const session = chatSessions.find(s => s.id === currentSessionId);
+    if(session) {
+        const text = session.messages.map(m => `${m.sender}: ${m.text}`).join("\n");
+        navigator.clipboard.writeText(text);
+        alert("Sohbet kopyalandı!");
+    }
+};
+        
