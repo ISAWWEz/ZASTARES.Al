@@ -1,4 +1,4 @@
-// ZASTARES AI - OMNI ENGINE v2.0 (Wikipedia API & AI Mantığı)
+// ZASTARES AI - OMNI ENGINE v3.0 (Swipe & No Limits)
 // YAPIMCI: İSAWWEz-CODLYİNG STUDİOS
 
 let chatSessions = JSON.parse(localStorage.getItem('zastares_sessions')) || [];
@@ -6,7 +6,7 @@ let currentSessionId = null;
 let isIncognito = false;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Açılış Ekranı ve Otomatik Giriş
+    // Açılış Ekranı ve Otomatik Giriş
     setTimeout(() => {
         const splash = document.getElementById('splash-screen');
         if(splash) splash.style.display = 'none';
@@ -24,16 +24,48 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('reg-btn').addEventListener('click', register);
     document.getElementById('send-btn').addEventListener('click', sendMessage);
     
-    // Klavyeden "Enter" tuşuna basınca gönderme
+    // Klavyeden "Enter" ile Gönderme
     document.getElementById('chat-input').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') sendMessage();
     });
 
     loadSessionsFromStorage();
+    setupSwipeMechanics(); // Kaydırma (Swipe) özelliğini başlat
 });
 
 // ==========================================
-// 1. HESAP VE GİRİŞ MEKANİĞİ
+// 1. DOKUNMATİK KAYDIRMA (SWIPE) MEKANİĞİ
+// ==========================================
+function setupSwipeMechanics() {
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+    });
+
+    document.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    });
+
+    function handleSwipe() {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+        
+        // Sağa Kaydırma (Açılış) - 70px barajı
+        if (touchEndX - touchStartX > 70) {
+            sidebar.classList.add('open');
+        }
+        // Sola Kaydırma (Kapanış) - 70px barajı
+        if (touchStartX - touchEndX > 70) {
+            sidebar.classList.remove('open');
+        }
+    }
+}
+
+// ==========================================
+// 2. HESAP VE GİRİŞ MEKANİĞİ
 // ==========================================
 function login(isAuto = false) {
     if (!isAuto) {
@@ -52,10 +84,8 @@ function login(isAuto = false) {
 }
 
 function register() {
-    const user = document.getElementById('r-user').value;
     const pass = document.getElementById('r-pass').value;
     const regex = /^(?=.*[0-9])(?=.*[@#₺_]).{12,}$/;
-    
     if (!regex.test(pass)) {
         alert("Kriter: 12+ Karakter, @#₺_ ve Sayı içermeli!");
     } else {
@@ -70,34 +100,39 @@ function toggleAuth() {
 }
 
 // ==========================================
-// 2. SOHBET GEÇMİŞİ VE OTURUMLAR
+// 3. SOHBET GEÇMİŞİ VE OTURUMLAR
 // ==========================================
 function createNewChat() {
     currentSessionId = Date.now();
-    const newSession = {
-        id: currentSessionId,
-        title: "Yeni Sohbet",
-        messages: []
-    };
+    const newSession = { id: currentSessionId, title: "Yeni Sohbet", messages: [] };
     chatSessions.unshift(newSession);
     saveToStorage();
     renderSidebar();
     clearChatScreen();
-    displayMessage("Sistem hazır. Bana her şeyi sorabilirsin, araştırabilirim!", "ai");
+    displayMessage("Sistem hazır. Sorularını bekliyorum!", "ai");
 }
 
 function loadSession(id) {
     currentSessionId = id;
     clearChatScreen();
     const session = chatSessions.find(s => s.id === id);
-    if (session) {
-        session.messages.forEach(m => displayMessage(m.text, m.sender));
-    }
+    if (session) session.messages.forEach(m => displayMessage(m.text, m.sender));
 }
 
 // ==========================================
-// 3. ZASTARES BEYNİ (WEB ARAMA & CEVAPLAMA)
+// 4. ZASTARES BEYNİ (SANSÜRSÜZ CEVAPLAMA)
 // ==========================================
+// Rastgele harfleri algılama algoritması
+function isGibberish(text) {
+    // 1. Aynı harften peş peşe 4 tane varsa (aaaa)
+    if (/(.)\1{3,}/.test(text)) return true;
+    // 2. Ardışık 5 sessiz harf varsa (qwrtyp)
+    if (/[bcçdfgğhjklmnprsştvyz]{5,}/i.test(text)) return true;
+    // 3. "Rejeieisuei" tarzı anlamsız uzunluklar (Boşluksuz ve 10 harften uzunsa mantıksız kabul edelim)
+    if (!text.includes(" ") && text.length > 10) return true;
+    return false;
+}
+
 async function sendMessage() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
@@ -114,34 +149,31 @@ async function sendMessage() {
         updateMessage(tempId, result);
         addMessageData(result, 'ai');
     } catch (e) {
-        updateMessage(tempId, "ZASTARES: Sistemlerimde kısa süreli bir hata oluştu. Lütfen tekrar sor.");
+        updateMessage(tempId, "ZASTARES: Ufak bir sistem hatası. Lütfen tekrar sor.");
     }
 }
 
-// ZASTARES'in Analiz Merkezi
 async function getAIResponse(query) {
-    const lowerQ = query.toLowerCase();
-    
-    // Konuyu anlamak için kelimeleri ayıkla
-    let searchTopic = query.replace(/ara|nedir|kimdir|hakkında|bilgi|ver/gi, "").trim();
-    if (searchTopic === "") searchTopic = query;
+    // 1. Önce kullanıcının rastgele tuşlara basıp basmadığını kontrol et
+    if (isGibberish(query)) {
+        return "ZASTARES: Sanırım rastgele tuşlara bastın! Lütfen mantıklı bir şeyler yaz.";
+    }
 
-    // Web Arama Tetikleyicisi
-    if (lowerQ.includes("ara") || lowerQ.includes("nedir") || lowerQ.includes("kimdir") || lowerQ.includes("ne demek")) {
-        return await fetchWikipedia(searchTopic);
-    } 
+    // 2. Her ihtimale karşı "ara" vs. gibi komut kelimelerini ayıkla ve direkt Wikipediada dene
+    const cleanTopic = query.replace(/ara|nedir|kimdir|hakkında/gi, "").trim() || query;
+    let webResult = await fetchWikipedia(cleanTopic);
     
-    // Eğer direkt arama demezse, Zastares kendi aklından cevap uydursun (Senin isteğin üzerine)
-    else {
+    // 3. Eğer Wiki'de varsa gerçek bilgi ver, yoksa KENDİ UYDURSUN!
+    if (webResult) {
+        return webResult;
+    } else {
         return generateCreativeResponse(query);
     }
 }
 
-// GERÇEK WEB ARAMASI (Wikipedia API - Çok daha akıllı)
+// Gerçek Web Araması (Sadece varsa döner, yoksa null döner)
 async function fetchWikipedia(topic) {
-    // origin=* kısmı tarayıcı (CORS) hatalarını engeller
     const url = `https://tr.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&origin=*&titles=${encodeURIComponent(topic)}`;
-
     try {
         const res = await fetch(url);
         const data = await res.json();
@@ -150,40 +182,35 @@ async function fetchWikipedia(topic) {
 
         if (pageId !== "-1" && pages[pageId].extract) {
             let info = pages[pageId].extract;
-            // Metin çok uzunsa keselim
-            if (info.length > 600) info = info.substring(0, 600) + "... [Devamı Web'de]";
-            return `🌐 **Web Araştırması (${topic}):**\n\n${info}`;
-        } else {
-            // Wikipedia bulamazsa ZASTARES kendi fikrini söylesin
-            return `🌐 İnternette '${topic}' hakkında resmi bir kaynak bulamadım. Ancak benim algoritmalarıma göre bu durum: oldukça potansiyeli olan, henüz keşfedilmemiş veya gizli bir konu olabilir!`;
+            if (info.length > 500) info = info.substring(0, 500) + "... [Devamı Web'de]";
+            return `🌐 **ZASTARES:**\n${info}`;
         }
+        return null; // Eğer bulamazsa "null" döner ve uydurma fonksiyonuna geçer
     } catch (err) {
-        return "Web bağlantım koptu, ancak çevrimdışı sistemlerim çalışıyor.";
+        return null;
     }
 }
 
-// ZASTARES'in Kendi Fikirleri (Serbest ve Bazen Yanlış Cevaplar)
+// Bulamadığı Zamanlarda ZASTARES'in Uydurma / Mantıklı Gözüken Cevapları
 function generateCreativeResponse(userText) {
     const responses = [
-        `Analizlerime göre "${userText}" konusu oldukça mantıklı. Ancak bunun üzerinde biraz daha çalışmalıyız.`,
-        `Tam olarak emin olmasam da, bence bu sorunun cevabı senin zekanda gizli! İstiyorsan bunu internette 'ara' diyerek detaylandırabilirim.`,
-        `ZASTARES Sistemleri bunu şöyle yorumluyor: Bu işin arkasında çok daha büyük bir kod mimarisi var.`,
-        `Bu anlattığın şey geleceğin teknolojisi olabilir. Şimdilik doğru kabul ediyorum!`,
-        `Anladım. Bunu veri tabanıma kaydettim. Başka ne öğrenmek istersin?`
+        `Analizlerime göre "${userText}" konusu oldukça karmaşık ama bir o kadar da geleceği olan bir kavram. Bence bu işin arkasında çok sağlam bir kod mantığı yatıyor.`,
+        `Sistemsel olarak bunu tam olarak doğrulayamasam da, "${userText}" meselesinin senin algoritmik düşünce yapınla uyuştuğunu görüyorum. Kesinlikle doğru yoldasın!`,
+        `İlginç bir yaklaşım! İnternetteki standart veriler bunu açıklamaya yetmez ama ZASTARES mantığına göre "${userText}" kesinlikle mümkün ve mantıklı.`,
+        `Bu anlattığın şeyin arkasında yatan asıl sır bence senin yaratıcılığında gizli. "${userText}" şimdilik kayıtlarıma bir 'Yenilik' olarak geçti!`,
+        `Açıkçası "${userText}" konusuyla ilgili sistemlerimde net bir tanım yok, ama ZASTARES yapay zekası olarak bunu harika bir fikir olarak onaylıyorum.`
     ];
-    // Rastgele bir "yapay zeka" cevabı seç
     return responses[Math.floor(Math.random() * responses.length)];
 }
 
 // ==========================================
-// 4. ARAYÜZ VE EKRAN YÖNETİMİ
+// 5. ARAYÜZ VE EKRAN YÖNETİMİ
 // ==========================================
 function addMessageData(text, sender) {
     if (!isIncognito) {
         const session = chatSessions.find(s => s.id === currentSessionId);
         if (session) {
             session.messages.push({text, sender});
-            // İlk mesajı sohbet başlığı yap
             if (session.messages.length === 2 && sender === 'user') {
                 session.title = text.substring(0, 20) + (text.length > 20 ? "..." : "");
             }
@@ -198,7 +225,7 @@ function displayMessage(text, sender) {
     const box = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = `msg ${sender}-msg`;
-    div.innerHTML = text.replace(/\n/g, "<br>"); // Satır boşluklarını koru
+    div.innerHTML = text.replace(/\n/g, "<br>"); 
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 }
@@ -243,9 +270,11 @@ function loadSessionsFromStorage() {
 }
 
 // ==========================================
-// 5. AYARLAR VE GLOBAL FONKSİYONLAR
+// 6. AYARLAR VE GLOBAL FONKSİYONLAR
 // ==========================================
-window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+window.toggleSidebar = () => {
+    document.getElementById('sidebar').classList.toggle('open');
+};
 window.toggleSettings = () => {
     const s = document.getElementById('settings-menu');
     s.style.display = s.style.display === 'block' ? 'none' : 'block';
@@ -280,3 +309,4 @@ window.copyHistory = () => {
         toggleSettings();
     }
 };
+
