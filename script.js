@@ -1,8 +1,8 @@
-// ZASTARES AI - FIX ENGINE
+// ZASTARES AI - WEB SEARCH ENGINE v1.1
 // YAPIMCI: İSAWWEz-CODLYİNG STUDİOS
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Açılış Ekranı Fix
+    // 3 saniye sonra açılış ekranını kapat ve giriş ekranını göster
     setTimeout(() => {
         const splash = document.getElementById('splash-screen');
         const auth = document.getElementById('auth-screen');
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (auth) auth.classList.remove('hidden');
     }, 3000);
 
-    // 2. Buton Dinleyicileri (Giriş Yapma Hatasını Çözer)
+    // Buton Dinleyicileri
     document.getElementById('login-btn').addEventListener('click', login);
     document.getElementById('reg-btn').addEventListener('click', register);
     document.getElementById('send-btn').addEventListener('click', sendMessage);
@@ -20,14 +20,13 @@ document.addEventListener('DOMContentLoaded', () => {
 let chatHistory = [];
 let isIncognito = false;
 
-// 3. Mekanikler
+// 1. Giriş ve Kayıt Mekaniği
 function toggleAuth() {
     document.getElementById('login-form').classList.toggle('hidden');
     document.getElementById('register-form').classList.toggle('hidden');
 }
 
 function login() {
-    // Giriş butonuna basıldığında ana uygulamayı açar
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('main-app').classList.remove('hidden');
 }
@@ -36,50 +35,73 @@ function register() {
     const pass = document.getElementById('r-pass').value;
     const regex = /^(?=.*[0-9])(?=.*[@#₺_]).{12,}$/;
     if (!regex.test(pass)) {
-        alert("Hata: Şifre en az 12 karakter olmalı, sayı ve (@#₺_) içermelidir!");
+        alert("Hata: Şifre en az 12 karakter olmalı, sayı ve (@#₺_) sembolü içermelidir!");
     } else {
-        alert("Kayıt Başarılı! Giriş yapabilirsiniz.");
+        alert("Kayıt Başarılı! Şimdi giriş yapabilirsin.");
         toggleAuth();
     }
 }
 
+// 2. Mesajlaşma ve WEB ARAŞTIRMA MANTIĞI
 async function sendMessage() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
     if (!text) return;
 
-    addMessage(text, 'user');
+    addMessage(text, 'user'); // Kullanıcı mesajını ekrana bas
     input.value = '';
 
+    // AI Düşünüyor... efekti
     const tempId = "ai-" + Date.now();
-    addPlaceholder("Düşünüyorum...", tempId);
+    addPlaceholder("İnternet kaynakları taranıyor...", tempId);
 
     try {
         let result = "";
-        if (text.toLowerCase().includes("ara") || text.toLowerCase().includes("nedir")) {
+        const lowerText = text.toLowerCase();
+
+        // Web Arama Tetikleyicisi
+        if (lowerText.includes("ara") || lowerText.includes("nedir") || lowerText.includes("kimdir")) {
             result = await webSearchAPI(text);
         } else {
-            result = "ZASTARES AI: Analiz edildi. Bu konuda daha fazla bilgi için '... nedir ara' şeklinde sorabilirsiniz.";
+            // Standart AI Cevabı (İnternete gerek olmayan durumlar)
+            result = "Anladım. Eğer bu konuda internette bir araştırma yapmamı istersen cümlene '... nedir ara' diye ekleyebilirsin.";
         }
-        updateMessage(tempId, result);
+
+        updateMessage(tempId, result); // Placeholder'ı gerçek cevapla değiştir
     } catch (e) {
-        updateMessage(tempId, "Hata: Web bağlantısı kurulamadı.");
+        updateMessage(tempId, "Hata: Web servislerine şu an ulaşılamıyor.");
     }
 }
 
+// Gerçek Web Arama Fonksiyonu (DuckDuckGo API)
 async function webSearchAPI(query) {
-    const q = query.replace("ara", "").replace("nedir", "").trim();
-    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1`;
+    // Sorgudaki tetikleyici kelimeleri temizleyelim
+    const cleanTopic = query.toLowerCase()
+        .replace("ara", "")
+        .replace("nedir", "")
+        .replace("kimdir", "")
+        .trim();
+
+    // DuckDuckGo API kullanımı (Ücretsiz ve anahtar gerektirmez)
+    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanTopic)}&format=json&no_html=1&skip_disambig=1`;
+
     try {
         const res = await fetch(url);
         const data = await res.json();
-        return data.AbstractText || "Üzgünüm, internet üzerinde net bir sonuç bulamadım.";
+
+        if (data.AbstractText) {
+            return `🌐 **ZASTARES Buldu:** ${data.AbstractText}\n\n*Kaynak: Web Kayıtları*`;
+        } else if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+            return `🔍 **Bilgi:** ${data.RelatedTopics[0].Text}`;
+        } else {
+            return "🔍 Üzgünüm, bu spesifik konu hakkında internette net bir özet bulamadım. Aramayı biraz daha basitleştirmeyi deneyebilirsin.";
+        }
     } catch (err) {
-        return "İnternet araması şu an yapılamıyor.";
+        return "❌ İnternet bağlantısı hatası: Web verileri çekilemedi.";
     }
 }
 
-// 4. Arayüz Yönetimi
+// 3. Arayüz Yönetim Fonksiyonları
 function addMessage(text, sender) {
     const msgBox = document.getElementById('messages');
     const div = document.createElement('div');
@@ -110,10 +132,10 @@ function addPlaceholder(text, id) {
 
 function updateMessage(id, text) {
     const el = document.getElementById(id);
-    if (el) el.innerText = text;
+    if (el) el.innerHTML = text.replace(/\n/g, "<br>"); // Satır başlarını destekle
 }
 
-// 5. Sidebar & Ayarlar
+// 4. Sidebar ve Ayar Mekanikleri (Bozulmadı)
 window.toggleSidebar = function() {
     document.getElementById('sidebar').classList.toggle('open');
 }
@@ -131,7 +153,7 @@ window.toggleIncognito = function() {
         header.innerText = "🕵️ GİZLİ SOHBET";
         header.style.color = "#ff4d4d";
         chat.classList.add('incognito-active');
-        document.getElementById('messages').innerHTML = '<div class="msg ai-msg">Gizli mod aktif. Çıkışta her şey silinir.</div>';
+        alert("Gizli mod aktif! Bu oturumdaki hiçbir konuşma kaydedilmeyecek.");
     } else {
         header.innerText = "ZASTARES AI";
         header.style.color = "#00ffcc";
@@ -148,7 +170,7 @@ window.clearHistory = function() {
 
 window.copyHistory = function() {
     navigator.clipboard.writeText(chatHistory.join("\n"));
-    alert("Kopyalandı!");
+    alert("Geçmiş panoya kopyalandı!");
 }
 
 function updateSidebar(text) {
@@ -158,4 +180,3 @@ function updateSidebar(text) {
     item.innerText = text.substring(0, 20) + "...";
     list.prepend(item);
 }
-    
