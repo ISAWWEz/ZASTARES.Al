@@ -1,181 +1,243 @@
-// ZASTARES AI - OMNI ENGINE v5.0 (Performance & Expert Mode)
+// ZASTARES AI - OMNI ENGINE v4.5 (Lag-Free & Optimized)
 // YAPIMCI: İSAWWEz-CODLYİNG STUDİOS
 
 let chatSessions = JSON.parse(localStorage.getItem('zastares_sessions')) || [];
 let currentSessionId = null;
 let isIncognito = false;
 
+// Performans için DOM elementlerini bir kez önbelleğe alalım
+const ui = {
+    messages: null,
+    input: null,
+    sidebar: null,
+    historyList: null
+};
+
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Splash Screen ve Giriş Kontrolü (Hızlandırıldı)
-    const splash = document.getElementById('splash-screen');
-    const auth = document.getElementById('auth-screen');
-    const main = document.getElementById('main-app');
+    // Elementleri tanımla
+    ui.messages = document.getElementById('messages');
+    ui.input = document.getElementById('chat-input');
+    ui.sidebar = document.getElementById('sidebar');
+    ui.historyList = document.getElementById('history-list');
 
     setTimeout(() => {
-        if(splash) splash.style.display = 'none';
+        const splash = document.getElementById('splash-screen');
+        if (splash) splash.style.display = 'none';
+        
         const savedUser = localStorage.getItem('zastares_user');
         if (savedUser) {
             login(true); 
-        } else if(auth) {
-            auth.classList.remove('hidden');
+        } else {
+            document.getElementById('auth-screen').classList.remove('hidden');
         }
-    }, 2500);
+    }, 2500); // 3 saniyeden 2.5'e çekildi, daha seri açılış
 
-    // Event Listeners (Takılmayı önlemek için pasif dinleyiciler kullanıldı)
-    document.getElementById('login-btn')?.addEventListener('click', () => login(false));
-    document.getElementById('reg-btn')?.addEventListener('click', register);
-    document.getElementById('send-btn')?.addEventListener('click', sendMessage);
+    document.getElementById('login-btn').addEventListener('click', () => login(false));
+    document.getElementById('reg-btn').addEventListener('click', register);
+    document.getElementById('send-btn').addEventListener('click', sendMessage);
     
-    document.getElementById('chat-input')?.addEventListener('keypress', (e) => {
+    ui.input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
 
-    loadSessionsFromStorage();
+    renderSidebar();
     setupSwipeMechanics();
 });
 
 // ==========================================
-// 1. PERFORMANS ODAKLI KAYDIRMA (SWIPE)
+// 1. SWIPE (KAYDIRMA) OPTİMİZASYONU
 // ==========================================
 function setupSwipeMechanics() {
     let touchStartX = 0;
-    document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+    document.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX, {passive: true});
     document.addEventListener('touchend', e => {
-        const touchEndX = e.changedTouches[0].screenX;
-        const sidebar = document.getElementById('sidebar');
-        if (!sidebar) return;
-        const diff = touchEndX - touchStartX;
-        if (diff > 80) sidebar.classList.add('open'); // Sağa
-        if (diff < -80) sidebar.classList.remove('open'); // Sola
+        let touchEndX = e.changedTouches[0].screenX;
+        let diff = touchEndX - touchStartX;
+        if (Math.abs(diff) > 80) { // Hassasiyet artırıldı
+            if (diff > 0) ui.sidebar.classList.add('open');
+            else ui.sidebar.classList.remove('open');
+        }
     }, {passive: true});
 }
 
 // ==========================================
-// 2. AKILLI CEVAP VE UZMANLIK SİSTEMİ
+// 2. ZEKA VE ARAŞTIRMA MANTIĞI (GELİŞTİRİLMİŞ)
 // ==========================================
 async function sendMessage() {
-    const input = document.getElementById('chat-input');
-    const text = input.value.trim();
+    const text = ui.input.value.trim();
     if (!text) return;
 
     addMessageData(text, 'user');
-    input.value = '';
+    ui.input.value = '';
 
     const tempId = "ai-" + Date.now();
     addPlaceholder("ZASTARES Analiz Ediyor...", tempId);
 
-    // Uygulamanın donmasını engellemek için async/await yapısı optimize edildi
+    // Ana işlem dizisini (Main Thread) rahatlatmak için setTimeout kullanalım
     setTimeout(async () => {
         try {
-            const result = await getAIResponse(text);
+            let result = await getAIResponse(text);
             updateMessage(tempId, result);
             addMessageData(result, 'ai');
         } catch (e) {
-            updateMessage(tempId, "ZASTARES: Veri işleme hatası. Lütfen tekrar dene.");
+            updateMessage(tempId, "ZASTARES: Bağlantı stabil değil, tekrar deneyebilir misin?");
         }
-    }, 100); 
+    }, 100);
 }
 
 async function getAIResponse(query) {
+    if (isGibberish(query)) return "ZASTARES: Sanırım rastgele tuşlara bastın! Lütfen mantıklı bir şeyler yaz.";
+
     const lowerQ = query.toLowerCase();
+    const cleanTopic = query.replace(/ara|nedir|kimdir|bilgi ver|hakkında/gi, "").trim() || query;
     
-    // Rastgele tuş kontrolü (Hızlı Algoritma)
-    if (/(.)\1{4,}/.test(query) || (/[bcçdfgğhjklmnprsştvyz]{6,}/i.test(query)) || (!query.includes(" ") && query.length > 12)) {
-        return "ZASTARES: Sanırım rastgele tuşlara bastın! Lütfen mantıklı bir şeyler yaz ki sana yardımcı olabileyim.";
-    }
+    // Wikipedia sorgusu (Hızlandırılmış)
+    let webResult = await fetchWikipedia(cleanTopic);
+    if (webResult) return webResult;
 
-    // WEB ARAŞTIRMA (Öncelikli)
-    const cleanTopic = query.replace(/ara|nedir|kimdir|hakkında|bilgi ver/gi, "").trim();
-    const webData = await fetchWikipedia(cleanTopic || query);
-    
-    if (webData) return webData;
-
-    // UZMANLIK ALANLARI (Kapsamlı ve Bilimsel Yanıtlar)
-    return generateDeepResponse(lowerQ);
-}
-
-function generateDeepResponse(q) {
-    // Akademik ve Teknik Konular (Fizik, Kimya, Matematik, Biyoloji)
-    if (/(atom|molekül|kuantum|hücre|dna|denklem|matematik|fizik|kimya|biyoloji|integral|türev)/.test(q)) {
-        return "🔍 **ZASTARES Akademik Veri:** Bu konu evrensel yasalarla doğrudan ilişkilidir. Analizlerime göre, bahsettiğin yapının moleküler veya matematiksel temelleri oldukça derin. Bu alandaki ileri düzey teorileri veya formülleri senin için detaylandırabilirim.";
-    }
-
-    // Tarih, Edebiyat ve Dünya Savaşları
-    if (/(tarih|savaş|imparator|yazar|kitap|edebiyat|devrim|osmanlı|roma)/.test(q)) {
-        return "📜 **ZASTARES Arşivi:** Tarihin tozlu sayfalarında bu konunun izleri çok belirgin. Stratejik hamleler, kültürel devrimler ve edebi şaheserler insanlığı şekillendirdi. Hangi dönemin veya akımın derinliklerine inmek istersin?";
-    }
-
-    // Spor, Futbol ve Atletizm
-    if (/(futbol|maç|gol|basketbol|spor|oyuncu|şampiyon)/.test(q)) {
-        return "⚽ **ZASTARES Spor Merkezi:** Performans verileri ve taktiksel disiplin bu sporun kalbidir. Takımların dinamikleri veya sporcu fizyolojisi üzerine geniş bir veri tabanına sahibim. Analiz etmemi istediğin spesifik bir olay var mı?";
-    }
-
-    // Sağlık, Diyet ve Beslenme
-    if (/(diyet|kalori|sağlık|besin|protein|zayıflama|vitamin)/.test(q)) {
-        return "🍎 **ZASTARES Sağlık Danışmanı:** İnsan metabolizması kompleks bir makine gibidir. Makro besin dengesi ve günlük kalori ihtiyacı hedeflerine göre değişir. Senin için bilimsel bir beslenme şeması veya diyet önerisi oluşturabilirim.";
-    }
-
-    // Uzun Metin / Makale Yazma
-    if (/(yaz|makale|uzun metin|hikaye|anlat)/.test(q)) {
-        return "✍️ **ZASTARES Yazarlık Modu:** Profesyonel, akıcı ve bilgilendirici bir metin hazırlıyorum. Giriş, gelişme ve sonuç bölümleriyle konuyu en ince detayına kadar ele alabilirim. Konu başlığını netleştirmen yeterli.";
-    }
-
-    // Hiçbir şey bulunamazsa (Senin istediğin "uydurma" ama zekice cevaplar)
-    const defaultLogic = [
-        "Bu konu üzerindeki verilerim henüz işleniyor ancak mantıksal çıkarımım bunun büyük bir potansiyel taşıdığı yönünde.",
-        "ZASTARES sistemleri bu soruyu yüksek öncelikli olarak analiz ediyor. Bence bu, geleceğin teknolojileriyle bağlantılı olabilir.",
-        "İlginç bir nokta! Veri tabanımda tam karşılığı olmasa da, algoritmalarım bunun doğru bir yaklaşım olduğunu söylüyor."
-    ];
-    return "💡 " + defaultLogic[Math.floor(Math.random() * defaultLogic.length)];
+    // Uzmanlık Alanları (Donma yapmaması için optimize Switch-Case yapısı)
+    return generateExpertResponse(lowerQ);
 }
 
 async function fetchWikipedia(topic) {
+    const url = `https://tr.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&origin=*&titles=${encodeURIComponent(topic)}`;
     try {
-        const res = await fetch(`https://tr.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&origin=*&titles=${encodeURIComponent(topic)}`);
+        const res = await fetch(url);
         const data = await res.json();
         const pages = data.query.pages;
         const pageId = Object.keys(pages)[0];
-        if (pageId !== "-1") return `🌐 **ZASTARES Araştırma:**\n${pages[pageId].extract.substring(0, 700)}...`;
+
+        if (pageId !== "-1" && pages[pageId].extract) {
+            let info = pages[pageId].extract;
+            return `🌐 **ZASTARES Bilgi Merkezi:**\n\n${info.substring(0, 700)}...`;
+        }
         return null;
-    } catch { return null; }
+    } catch (err) { return null; }
+}
+
+function generateExpertResponse(q) {
+    // Kategori tabanlı hızlı eşleşme
+    const maps = [
+        { keys: ["futbol", "maç", "gol", "spor"], msg: "ZASTARES Spor: Futbol ve spor dünyasındaki stratejileri analiz ediyorum. Hangi takım veya oyuncu üzerine yoğunlaşalım?" },
+        { keys: ["hücre", "dna", "atom", "fizik", "kimya", "biyoloji"], msg: "ZASTARES Bilim: Moleküler düzeyde veya kuantum evreninde bir araştırma mı yapıyoruz? Formülleri hazırladım." },
+        { keys: ["tarih", "savaş", "imparator", "devlet"], msg: "ZASTARES Arşiv: Dünya tarihindeki savaşlar ve siyasi devrimler kayıtlarımda mevcut. Hangi dönemi merak ediyorsun?" },
+        { keys: ["diyet", "kalori", "besin", "sağlık"], msg: "ZASTARES Sağlık: Diyetisyen modum aktif. Kalori takibi ve makro besin dengesi hakkında sana rehberlik edebilirim." },
+        { keys: ["yaz", "makale", "metin", "uzun"], msg: "ZASTARES Yazar: Senin için profesyonel ve derinlikli bir makale kaleme alabilirim. Konuyu belirtmen yeterli." }
+    ];
+
+    for (let map of maps) {
+        if (map.keys.some(k => q.includes(k))) return map.msg;
+    }
+
+    return "ZASTARES: Bu konu hakkında derinlemesine bir mantık yürütüyorum. Bence bu durum oldukça yenilikçi bir yaklaşıma sahip!";
 }
 
 // ==========================================
-// 3. SİSTEM VE HAFIZA YÖNETİMİ (TAKILMA ÖNLEYİCİ)
+// 3. EKRAN VE PERFORMANS YÖNETİMİ
 // ==========================================
 function addMessageData(text, sender) {
-    if (!isIncognito && currentSessionId) {
+    if (!isIncognito) {
         const session = chatSessions.find(s => s.id === currentSessionId);
         if (session) {
             session.messages.push({text, sender});
-            if (session.messages.length === 2 && sender === 'user') {
-                session.title = text.substring(0, 25) + "...";
+            if (session.messages.length <= 2 && sender === 'user') {
+                session.title = text.substring(0, 15) + "...";
+                saveToStorage();
+                renderSidebar();
+            } else {
+                saveToStorage();
             }
-            saveToStorage();
-            renderSidebar();
         }
     }
     displayMessage(text, sender);
 }
 
 function displayMessage(text, sender) {
-    const box = document.getElementById('messages');
-    if(!box) return;
     const div = document.createElement('div');
     div.className = `msg ${sender}-msg`;
     div.innerHTML = text.replace(/\n/g, "<br>");
-    box.appendChild(div);
-    box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' }); // Daha akıcı kaydırma
+    ui.messages.appendChild(div);
+    ui.messages.scrollTo({ top: ui.messages.scrollHeight, behavior: 'smooth' });
+}
+
+function addPlaceholder(text, id) {
+    const div = document.createElement('div');
+    div.className = `msg ai-msg`;
+    div.innerText = text;
+    div.id = id;
+    ui.messages.appendChild(div);
+    ui.messages.scrollTop = ui.messages.scrollHeight;
 }
 
 function updateMessage(id, text) {
     const el = document.getElementById(id);
     if (el) {
-        el.innerHTML = text.replace(/\n/g, "<br>");
-        el.classList.add('fade-in'); // Hafif bir geçiş efekti
+        el.style.opacity = '0';
+        setTimeout(() => {
+            el.innerHTML = text.replace(/\n/g, "<br>");
+            el.style.opacity = '1';
+            ui.messages.scrollTop = ui.messages.scrollHeight;
+        }, 50);
     }
 }
 
-// ... Diğer yardımcı fonksiyonlar (saveToStorage, renderSidebar, login, register) öncekiyle aynı kalmalı ...
-// (Kodun geri kalanı stabil olduğu için buraya eklemedim ama senin dosyanda durmalı)
-        
+function renderSidebar() {
+    if (!ui.historyList) return;
+    ui.historyList.innerHTML = `<div class="sidebar-item" onclick="createNewChat()" style="color:#00ffcc; border:1px dashed #00ffcc; text-align:center;">+ YENİ SOHBET</div>`;
+    
+    // Performans için DocumentFragment kullanalım (Ekranda takılmayı önler)
+    const fragment = document.createDocumentFragment();
+    chatSessions.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'sidebar-item';
+        item.innerText = s.title || "Sohbet";
+        item.onclick = () => { loadSession(s.id); ui.sidebar.classList.remove('open'); };
+        fragment.appendChild(item);
+    });
+    ui.historyList.appendChild(fragment);
+}
+
+function createNewChat() {
+    currentSessionId = Date.now();
+    chatSessions.unshift({ id: currentSessionId, title: "Yeni Sohbet", messages: [] });
+    saveToStorage();
+    renderSidebar();
+    ui.messages.innerHTML = '';
+    displayMessage("ZASTARES AI Uzman Modu Hazır.", "ai");
+}
+
+function loadSession(id) {
+    currentSessionId = id;
+    ui.messages.innerHTML = '';
+    const session = chatSessions.find(s => s.id === id);
+    if (session) session.messages.forEach(m => displayMessage(m.text, m.sender));
+}
+
+function saveToStorage() {
+    localStorage.setItem('zastares_sessions', JSON.stringify(chatSessions));
+}
+
+// Global Fonksiyonlar
+window.login = login;
+window.register = register;
+window.toggleSidebar = () => ui.sidebar.classList.toggle('open');
+window.clearHistory = () => { if(confirm("Tüm veriler silinecek?")) { localStorage.clear(); location.reload(); }};
+window.toggleIncognito = () => {
+    isIncognito = !isIncognito;
+    document.getElementById('header-title').innerText = isIncognito ? "🕵️ GİZLİ SOHBET" : "ZASTARES AI";
+    document.getElementById('header-title').style.color = isIncognito ? "#ff4d4d" : "#00ffcc";
+    ui.sidebar.classList.remove('open');
+};
+
+function isGibberish(t) { return (/(.)\1{4,}/.test(t)) || (/[bcçdfgğhjklmnprsştvyz]{6,}/i.test(t)) || (!t.includes(" ") && t.length > 15); }
+function login(isAuto) {
+    if (!isAuto) {
+        const u = document.getElementById('l-user').value;
+        if (!u) return;
+        localStorage.setItem('zastares_user', u);
+    }
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
+    if (chatSessions.length === 0) createNewChat(); else loadSession(chatSessions[0].id);
+                   }
+            
